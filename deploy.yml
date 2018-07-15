@@ -1,0 +1,10 @@
+---
+- hosts: default
+  roles:
+    - carlosbuenosvinos.ansistrano-deploy
+  handlers:
+    - name: restart apache
+      service:
+        name: httpd
+        state: restarted
+      become: yes

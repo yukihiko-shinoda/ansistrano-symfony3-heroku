@@ -1,0 +1,61 @@
+---
+- name: ANSISTRANO | HOOKS | Execute composer
+  composer:
+    working_dir: "{{ roles_common_document_root }}"
+    prefer_dist: yes
+    optimize_autoloader: "{{ composer_optimize_autoloader }}"
+    no_dev: "{{ composer_no_dev }}"
+  environemnt:
+    SYMFONY_DATABASE_HOST: "{{ application_database_host|default(omit) }}"
+    SYMFONY_DATABASE_PORT: "{{ application_database_port|default(omit) }}"
+    SYMFONY_DATABASE_NAME: "{{ application_database_name|default(omit) }}"
+    SYMFONY_DATABASE_USER: "{{ application_database_user|default(omit) }}"
+    SYMFONY_DATABASE_PASSWORD: "{{ application_database_password|default(omit) }}"
+    SYMFONY_REDIS_DSN_DEFAULT: "{{ 'redis://' + application_redis_host + '/0' if application_redis_host is defined else omit }}"
+    SYMFONY_REDIS_DSN_CACHE: "{{ 'redis://' + application_redis_host + '/1' if application_redis_host is defined else omit }}"
+    SYMFONY_REDIS_DSN_SESSION: "{{ 'redis://' + application_redis_host + '/2' if application_redis_host is defined else omit }}"
+    SYMFONY_REDIS_DSN_STORAGE: "{{ 'redis://' + application_redis_host + '/3' if application_redis_host is defined else omit }}"
+    SYMFONY_SECRET: "{{ symfony_secret|default(omit) }}"
+    SYMFONY_ENV: "{{ symfony_env }}"
+
+- name: ANSISTRANO | HOOKS | Clear cache
+  command: "php bin/console cache:clear{{ ' --no-debug' if stage == 'production' else '' }}"
+  args:
+    chdir: "{{ roles_common_document_root }}"
+  environment:
+    SYMFONY_ENV: "{{ symfony_env }}"
+  # ↓ Because warmup process create directory as execute user's group permission so apache can't create new cache when deploy user execute warmup
+  become_user: apache
+
+- name: ANSISTRANO | HOOKS | Dump assets
+  command: "php bin/console assetic:dump{{ ' --no-debug' if stage == 'production' else '' }}"
+  args:
+    chdir: "{{ roles_common_document_root }}"
+  environment:
+    SYMFONY_ENV: "{{ symfony_env }}"
+
+- name: ANSISTRANO | HOOKS | Migrate database
+  command: php bin/console doctrine:migrations:migrate --allow-no-migration --no-interaction
+  args:
+    chdir: "{{ roles_common_document_root }}"
+  environment:
+    SYMFONY_ENV: "{{ symfony_env }}"
+
+- name: ANSISTRANO | HOOKS | Get current DocumentRoot
+  shell: grep "^DocumentRoot" /etc/httpd/conf/httpd.conf | awk '{print $2}' | sed -e 's/^"//' -e 's/"$//'
+  become: yes
+  ignore_errors: yes
+  register: current_document_root
+
+- name: ANSISTRANO | HOOKS | Change document root for Apache
+  replace:
+    path: /etc/httpd/conf/httpd.conf
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+  with_items:
+    - regexp: '^DocumentRoot\s+"{{ current_document_root.stdout }}"'
+      replace: "DocumentRoot \"{{ roles_common_document_root }}\""
+    - regexp: '^<Directory\s"{{ current_document_root.stdout }}">$'
+      replace: "<Directory \"{{ roles_common_document_root }}\">"
+  become: yes
+  notify: restart apache

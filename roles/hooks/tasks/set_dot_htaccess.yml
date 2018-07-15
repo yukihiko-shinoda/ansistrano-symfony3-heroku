@@ -1,0 +1,9 @@
+---
+- name: ANSISTRANO | HOOKS | Set .htaccess
+  template:
+    src: "{{ playbook_dir }}/roles/hooks/templates/.htaccess.j2"
+    dest: "{{ roles_common_document_root }}/web/.htaccess"
+    owner: "{{ roles_common_deploy_user }}"
+    group: apache
+    mode: 0775
+  become: yes

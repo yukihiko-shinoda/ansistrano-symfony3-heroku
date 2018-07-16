@@ -5,3 +5,5 @@ composer_optimize_autoloader: no
 composer_no_dev: no
 roles_common_deploy_user: vagrant
 roles_common_document_root: /home/{{ roles_common_deploy_user }}/workspace/repo
+# ↓ For VirtualBox
+mysql_ingress: 10.0.2.2

@@ -1,0 +1,23 @@
+---
+- name: add MySQL ingress and change password for root user
+  mysql_user:
+    name: "root"
+    host: "{{ item }}"
+    password: "{{ mysql_root_password }}"
+  with_items:
+    - 127.0.0.1
+    - ::1
+    - localhost.localdomain
+    - localhost
+    - "{{ mysql_ingress|default(omit) }}"
+  become: yes
+  when: mysql_root_password is defined
+
+- name: update setting file to connect MySQL for root user
+  replace:
+    path: /root/.my.cnf
+    regexp: ^password\s*=\s*.*$
+    replace: 'password="{{ mysql_root_password }}"'
+  notify: restart mysql
+  become: yes
+  when: mysql_root_password is defined

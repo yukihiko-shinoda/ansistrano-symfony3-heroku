@@ -3,6 +3,11 @@
   roles:
     - carlosbuenosvinos.ansistrano-deploy
   handlers:
+    - nmae: restart mysql
+      service:
+        name: mysqld
+        state: restarted
+      become: yes
     - name: restart apache
       service:
         name: httpd

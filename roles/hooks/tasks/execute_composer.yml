@@ -11,6 +11,7 @@
     SYMFONY_DATABASE_NAME: "{{ application_database_name|default(omit) }}"
     SYMFONY_DATABASE_USER: "{{ application_database_user|default(omit) }}"
     SYMFONY_DATABASE_PASSWORD: "{{ application_database_password|default(omit) }}"
+    SYMFONY_MYSQL_CA: "{{ application_mysql_ca|default(omit) }}"
     SYMFONY_REDIS_DSN_DEFAULT: "{{ 'redis://' + application_redis_host + '/0' if application_redis_host is defined else omit }}"
     SYMFONY_REDIS_DSN_CACHE: "{{ 'redis://' + application_redis_host + '/1' if application_redis_host is defined else omit }}"
     SYMFONY_REDIS_DSN_SESSION: "{{ 'redis://' + application_redis_host + '/2' if application_redis_host is defined else omit }}"

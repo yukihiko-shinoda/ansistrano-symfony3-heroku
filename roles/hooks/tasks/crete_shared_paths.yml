@@ -7,4 +7,4 @@
     owner: "{{ roles_common_deploy_user }}"
     group: apache
   with_items: "{{ ansistrano_shared_paths }}"
-  when: stage == 'development'
+  when: "'development' in group_names"

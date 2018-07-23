@@ -13,3 +13,8 @@
         name: httpd
         state: restarted
       become: yes
+    - name: restart samba
+      service:
+        name: smb
+        state: restarted
+      become: yes

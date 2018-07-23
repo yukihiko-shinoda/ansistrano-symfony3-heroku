@@ -1,5 +1,4 @@
 ---
-stage: production
 symfony_env: prod
 composer_optimize_autoloader: yes
 composer_no_dev: yes

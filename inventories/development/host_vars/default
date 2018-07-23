@@ -1,5 +1,4 @@
 ---
-stage: development
 symfony_env: dev
 composer_optimize_autoloader: no
 composer_no_dev: no

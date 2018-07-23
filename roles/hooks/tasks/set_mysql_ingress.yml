@@ -1,5 +1,5 @@
 ---
-- name: add MySQL ingress and change password for root user
+- name: ANSISTRANO | HOOKS | Add MySQL ingress and change password for root user
   mysql_user:
     name: "root"
     host: "{{ item }}"
@@ -13,7 +13,7 @@
   become: yes
   when: mysql_root_password is defined
 
-- name: update setting file to connect MySQL for root user
+- name: ANSISTRANO | HOOKS | Update setting file to connect MySQL for root user
   replace:
     path: /root/.my.cnf
     regexp: ^password\s*=\s*.*$
@@ -21,3 +21,19 @@
   notify: restart mysql
   become: yes
   when: mysql_root_password is defined
+
+- name: ANSISTRANO | HOOKS | Set permissions for Apache on application root for prevent error to Apache check whether .htaccess exist or not
+  file:
+    path: "/home/{{ roles_common_deploy_user }}"
+    state: directory
+    owner: "{{ roles_common_deploy_user }}"
+    group: apache
+    mode: 0710
+
+- name: ANSISTRANO | HOOKS | Ensure base directory and set SGID
+  file:
+    path: "{{ ansistrano_deploy_to }}"
+    state: directory
+    owner: "{{ roles_common_deploy_user }}"
+    group: apache
+    mode: 02775

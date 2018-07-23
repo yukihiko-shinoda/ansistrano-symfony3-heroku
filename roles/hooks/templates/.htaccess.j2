@@ -3,7 +3,7 @@
 # mod_rewrite). Additionally, this reduces the matching process for the
 # start page (path "/") because otherwise Apache will apply the rewriting rules
 # to each configured DirectoryIndex file (e.g. index.php, index.html, index.pl).
-DirectoryIndex app{{ '_dev' if stage == 'development' else '' }}.php
+DirectoryIndex app{{ '_dev' if 'development' in group_names else '' }}.php
 
 # By default, Apache does not evaluate symbolic links if you did not enable this
 # feature in your server configuration. Uncomment the following line if you
@@ -54,7 +54,7 @@ DirectoryIndex app{{ '_dev' if stage == 'development' else '' }}.php
     RewriteRule ^ - [L]
 
     # Rewrite all other queries to the front controller.
-    RewriteRule ^ %{ENV:BASE}/app{{ '_dev' if stage == 'development' else '' }}.php [L]
+    RewriteRule ^ %{ENV:BASE}/app{{ '_dev' if 'development' in group_names else '' }}.php [L]
 </IfModule>
 
 <IfModule !mod_rewrite.c>
@@ -62,7 +62,7 @@ DirectoryIndex app{{ '_dev' if stage == 'development' else '' }}.php
         # When mod_rewrite is not available, we instruct a temporary redirect of
         # the start page to the front controller explicitly so that the website
         # and the generated links can still be used.
-        RedirectMatch 302 ^/$ /app{{ '_dev' if stage == 'development' else '' }}.php/
+        RedirectMatch 302 ^/$ /app{{ '_dev' if 'development' in group_names else '' }}.php/
         # RedirectTemp cannot be used instead
     </IfModule>
 </IfModule>

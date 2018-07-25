@@ -1,7 +1,7 @@
 ---
 - hosts: default
   roles:
-    - carlosbuenosvinos.ansistrano-deploy
+    - hooks
   handlers:
     - nmae: restart mysql
       service:

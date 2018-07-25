@@ -1,0 +1,9 @@
+---
+- name: ANSISTRANO | Ensure shared paths exists
+  file:
+    path: "{{ ansistrano_deploy_to }}/repo/{{ item }}"
+    state: directory
+    owner: "{{ roles_common_deploy_user }}"
+    group: apache
+    mode: 02775
+  with_items: "{{ ansistrano_shared_paths }}"

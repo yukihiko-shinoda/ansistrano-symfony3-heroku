@@ -1,5 +1,4 @@
 ---
-ansistrano_deploy_to: "/home/{{ roles_common_deploy_user }}/workspace"
 ansistrano_shared_paths:
   - var/cache
   - var/logs

@@ -3,4 +3,5 @@ symfony_env: prod
 composer_optimize_autoloader: yes
 composer_no_dev: yes
 roles_common_deploy_user: vagrant
-roles_common_document_root: /var/www/html/current
+ansistrano_deploy_to: /var/www/html/current
+roles_common_document_root: "{{ ansistrano_deploy_to }}/current"

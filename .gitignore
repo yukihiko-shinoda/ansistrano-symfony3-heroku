@@ -1,2 +1,3 @@
 .idea
 deploy.retry
+deploy_without_ansistrano.retry

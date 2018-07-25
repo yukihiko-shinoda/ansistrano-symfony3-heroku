@@ -24,7 +24,7 @@
 
 - name: ANSISTRANO | HOOKS | Set permissions for Apache on application root for prevent error to Apache check whether .htaccess exist or not
   file:
-    path: "/home/{{ roles_common_deploy_user }}"
+    path: "{{ roles_common_home_directory }}"
     state: directory
     owner: "{{ roles_common_deploy_user }}"
     group: apache

@@ -1,0 +1,5 @@
+---
+- include_tasks: set_mysql_ingress.yml
+- include_tasks: set_dot_htaccess.yml
+- include_tasks: setup.yml
+- include_tasks: execute_composer.yml

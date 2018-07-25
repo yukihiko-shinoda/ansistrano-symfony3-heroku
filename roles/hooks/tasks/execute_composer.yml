@@ -68,6 +68,11 @@
     replace: "{{ ansistrano_deploy_to }}/shared/var/logs/*log {"
   become: yes
 
+- name: ANSISTRANO | HOOKS | Check whether Samba config for workspace exists or not
+  stat:
+    path: /etc/samba/smb.conf.workspace
+  register: stat_samba_config_workspace
+
 - name: ANSISTRANO | HOOKS | Replace workspace on Samba config
   replace:
     path: /etc/samba/smb.conf.workspace
@@ -75,4 +80,4 @@
     replace: "    path = {{ ansistrano_deploy_to }}"
   become: yes
   notify: restart samba
-  when: "'development' in group_names"
+  when: stat_samba_config_workspace.stat.exists

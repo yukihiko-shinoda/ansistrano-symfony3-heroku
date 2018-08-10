@@ -1,10 +1,10 @@
 ---
 - name: ANSISTRANO | HOOKS | Create symlink from repository
   file:
-    path: "{{ ansistrano_deploy_to }}/repo/{{ item }}"
-    src: "{{ ansistrano_deploy_to }}/shared/{{ item }}"
+    path: '{{ ansistrano_deploy_to }}/repo/{{ item }}'
+    src: '{{ ansistrano_deploy_to }}/shared/{{ item }}'
     state: link
-    owner: "{{ roles_common_deploy_user }}"
-    group: apache
-  with_items: "{{ ansistrano_shared_paths }}"
-  when: "'development' in group_names"
+    owner: '{{ roles_common_deploy_user }}'
+    group: '{{ roles_common_apache_running_user }}'
+  with_items: '{{ ansistrano_shared_paths }}'
+  when: '"development" in group_names'

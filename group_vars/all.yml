@@ -13,3 +13,4 @@ ansistrano_before_setup_tasks_file: "{{ playbook_dir }}/roles/hooks/tasks/set_my
 ansistrano_after_update_code_tasks_file: "{{ playbook_dir }}/roles/hooks/tasks/set_dot_htaccess.yml"
 ansistrano_after_symlink_shared_tasks_file: "{{ playbook_dir }}/roles/hooks/tasks/crete_shared_paths.yml"
 ansistrano_after_symlink_tasks_file: "{{ playbook_dir }}/roles/hooks/tasks/execute_composer.yml"
+roles_common_apache_running_user: '{{ "nobody" if is_container is defined and is_container else "apache" }}'

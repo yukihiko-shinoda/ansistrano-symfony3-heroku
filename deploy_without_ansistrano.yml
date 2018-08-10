@@ -3,7 +3,7 @@
   roles:
     - hooks
   handlers:
-    - nmae: restart mysql
+    - name: restart mysql
       service:
         name: mysqld
         state: restarted

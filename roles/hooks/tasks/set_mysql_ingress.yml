@@ -1,15 +1,15 @@
 ---
 - name: ANSISTRANO | HOOKS | Add MySQL ingress and change password for root user
   mysql_user:
-    name: "root"
-    host: "{{ item }}"
-    password: "{{ mysql_root_password }}"
+    name: root
+    host: '{{ item }}'
+    password: '{{ mysql_root_password }}'
   with_items:
     - 127.0.0.1
     - ::1
     - localhost.localdomain
     - localhost
-    - "{{ mysql_ingress|default(omit) }}"
+    - '{{ mysql_ingress|default(omit) }}'
   become: yes
   when: mysql_root_password is defined
 
@@ -17,23 +17,23 @@
   replace:
     path: /root/.my.cnf
     regexp: ^password\s*=\s*.*$
-    replace: 'password="{{ mysql_root_password }}"'
+    replace: password="{{ mysql_root_password }}"
   notify: restart mysql
   become: yes
   when: mysql_root_password is defined
 
 - name: ANSISTRANO | HOOKS | Set permissions for Apache on application root for prevent error to Apache check whether .htaccess exist or not
   file:
-    path: "{{ roles_common_home_directory }}"
+    path: '{{ roles_common_home_directory }}'
     state: directory
-    owner: "{{ roles_common_deploy_user }}"
-    group: apache
+    owner: '{{ roles_common_deploy_user }}'
+    group: '{{ roles_common_apache_running_user }}'
     mode: 0710
 
 - name: ANSISTRANO | HOOKS | Ensure base directory and set SGID
   file:
-    path: "{{ ansistrano_deploy_to }}"
+    path: '{{ ansistrano_deploy_to }}'
     state: directory
-    owner: "{{ roles_common_deploy_user }}"
-    group: apache
+    owner: '{{ roles_common_deploy_user }}'
+    group: '{{ roles_common_apache_running_user }}'
     mode: 02775

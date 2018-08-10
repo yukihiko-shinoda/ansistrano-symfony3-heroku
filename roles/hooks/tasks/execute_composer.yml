@@ -1,35 +1,41 @@
 ---
 - name: ANSISTRANO | HOOKS | Execute composer
   composer:
+#    command: update
     working_dir: "{{ roles_common_document_root }}"
     prefer_dist: yes
     optimize_autoloader: "{{ composer_optimize_autoloader }}"
     no_dev: "{{ composer_no_dev }}"
-  environemnt:
-    SYMFONY_DATABASE_HOST: "{{ application_database_host|default(omit) }}"
-    SYMFONY_DATABASE_PORT: "{{ application_database_port|default(omit) }}"
-    SYMFONY_DATABASE_NAME: "{{ application_database_name|default(omit) }}"
-    SYMFONY_DATABASE_USER: "{{ application_database_user|default(omit) }}"
-    SYMFONY_DATABASE_PASSWORD: "{{ application_database_password|default(omit) }}"
-    SYMFONY_MYSQL_CA: "{{ application_mysql_ca|default(omit) }}"
-    SYMFONY_REDIS_DSN_DEFAULT: "{{ 'redis://' + application_redis_host + '/0' if application_redis_host is defined else omit }}"
-    SYMFONY_REDIS_DSN_CACHE: "{{ 'redis://' + application_redis_host + '/1' if application_redis_host is defined else omit }}"
-    SYMFONY_REDIS_DSN_SESSION: "{{ 'redis://' + application_redis_host + '/2' if application_redis_host is defined else omit }}"
-    SYMFONY_REDIS_DSN_STORAGE: "{{ 'redis://' + application_redis_host + '/3' if application_redis_host is defined else omit }}"
-    SYMFONY_SECRET: "{{ symfony_secret|default(omit) }}"
+  environment:
+    # ↓ Environment variable can't omit... @see https://github.com/ansible/ansible/issues/14130
+    SYMFONY_DATABASE_HOST: '{{ application_database_host|default("127.0.0.1") }}'
+    SYMFONY_DATABASE_PORT: '{{ application_database_port|default(null) }}'
+    SYMFONY_DATABASE_NAME: '{{ application_database_name|default("service") }}'
+    SYMFONY_DATABASE_USER: '{{ application_database_user|default("app") }}'
+    SYMFONY_DATABASE_PASSWORD: '{{ application_database_password|default(null) }}'
+    # ↓ Naming standard is defined by specification of Heroku.
+    DATABASE_URL: '{{ application_database_url|default(null) }}'
+    # ↓ Naming standard is defined by specification of Heroku.
+    LOG_LEVEL: '{{ application_log_level|default("error") }}'
+    SYMFONY_MYSQL_CA: '{{ application_mysql_ca|default("/etc/pki/CA/cacert.pem") }}'
+    SYMFONY_REDIS_DSN_DEFAULT: '{{ "redis://" + application_redis_host + "/0" if application_redis_host is defined else "redis://localhost/0" }}'
+    SYMFONY_REDIS_DSN_CACHE: '{{ "redis://" + application_redis_host + "/1" if application_redis_host is defined else "redis://localhost/1" }}'
+    SYMFONY_REDIS_DSN_SESSION: '{{ "redis://" + application_redis_host + "/2" if application_redis_host is defined else "redis://localhost/2" }}'
+    SYMFONY_REDIS_DSN_STORAGE: '{{ "redis://" + application_redis_host + "/3" if application_redis_host is defined else "redis://localhost/3" }}'
+    SYMFONY_SECRET: '{{ symfony_secret|default("ThisTokenIsNotSoSecretChangeIt") }}'
     SYMFONY_ENV: "{{ symfony_env }}"
 
 - name: ANSISTRANO | HOOKS | Clear cache
-  command: "php bin/console cache:clear{{ ' --no-debug' if 'production' in group_names else '' }}"
+  command: php bin/console cache:clear{{ ' --no-debug' if 'production' in group_names else '' }}
   args:
     chdir: "{{ roles_common_document_root }}"
   environment:
     SYMFONY_ENV: "{{ symfony_env }}"
   # ↓ Because warmup process create directory as execute user's group permission so apache can't create new cache when deploy user execute warmup
-  become_user: apache
+  become_user: '{{ roles_common_apache_running_user }}'
 
 - name: ANSISTRANO | HOOKS | Dump assets
-  command: "php bin/console assetic:dump{{ ' --no-debug' if 'production' in group_names else '' }}"
+  command: php bin/console assetic:dump{{ ' --no-debug' if 'production' in group_names else '' }}
   args:
     chdir: "{{ roles_common_document_root }}"
   environment:
@@ -48,25 +54,101 @@
   ignore_errors: yes
   register: current_document_root
 
-- name: ANSISTRANO | HOOKS | Change document root for Apache
+- name: ANSISTRANO | HOOKS | Replace document root for Apache
   replace:
     path: /etc/httpd/conf/httpd.conf
     regexp: "{{ item.regexp }}"
     replace: "{{ item.replace }}"
   with_items:
-    - regexp: '^DocumentRoot\s+"{{ current_document_root.stdout }}"'
-      replace: "DocumentRoot \"{{ roles_common_document_root }}\""
-    - regexp: '^<Directory\s"{{ current_document_root.stdout }}">$'
-      replace: "<Directory \"{{ roles_common_document_root }}\">"
+    - regexp: ^DocumentRoot\s+"{{ current_document_root.stdout }}"
+      replace: DocumentRoot "{{ roles_common_document_root }}"
+    - regexp: ^<Directory\s"{{ current_document_root.stdout }}">$
+      replace: <Directory "{{ roles_common_document_root }}">
   become: yes
   notify: restart apache
+
+- name: ANSISTRANO | HOOKS | Check whether Samba config for workspace exists or not
+  stat:
+    path: /etc/httpd/conf.d/php-fpm.conf
+  register: stat_acphe_config_php_fpm
+
+- name: ANSISTRANO | HOOKS | Replace workspace on php-fpm config
+  replace:
+    path: /etc/httpd/conf.d/php-fpm.conf
+    regexp: ProxyPassMatch\s\^/\(\.\*\\\.php\(/\.\*\)\?\)\$\sfcgi://127\.0\.0\.1\:9000{{ current_document_root.stdout }}/\$1
+    replace: ProxyPassMatch ^/(.*\.php(/.*)?)$ fcgi://127.0.0.1:9000{{ roles_common_document_root }}/$1
+  become: yes
+  notify: restart apache
+  when: stat_acphe_config_php_fpm.stat.exists
 
 - name: ANSISTRANO | HOOKS | Replace logrotate path for Symfony3
   replace:
     path: /etc/logrotate.d/symfony3
     regexp: '{{ current_document_root.stdout }}/shared/var/logs/\*log\s\{'
-    replace: "{{ ansistrano_deploy_to }}/shared/var/logs/*log {"
+    replace: '{{ ansistrano_deploy_to + "/shared/var/logs/*log {" if is_ansistrano is not defined or is_ansistrano else ansistrano_deploy_to + "/var/logs/*log {" }}'
   become: yes
+
+- name: ANSISTRANO | HOOKS | Comment out function of BuildPack to call composer
+  lineinfile:
+    path: '{{ roles_common_document_root }}/vendor/heroku/heroku-buildpack-php/bin/heroku-php-apache2'
+    insertbefore: '{{ item.insertbefore }}'
+    line: '{{ item.line }}'
+  with_items:
+    - insertbefore: ^composer\(\)\s{$
+      line: << "#__CO__"
+    - insertbefore: ^COMPOSER_VENDOR_DIR=.*
+      line: '#__CO__'
+
+- name: ANSISTRANO | HOOKS | Set listen user and group on php-fpm config of BuildPack to connect from Apache
+  replace:
+    path: '{{ roles_common_document_root }}/vendor/heroku/heroku-buildpack-php/conf/php/php-fpm.conf'
+    regexp: '{{ item.regexp }}'
+    replace: '{{ item.replace }}'
+  with_items:
+    - regexp: ^;listen\.owner\s=\snobody$
+      replace: listen.owner = {{ roles_common_apache_running_user }}
+    - regexp: ^;listen.group\s=\snobody$
+      replace: listen.group = {{ roles_common_apache_running_user }}
+
+#- name: ANSISTRANO | HOOKS | Set capability for heroku-cli and BuildPack
+#  command: setcap 'cap_net_bind_service=+ep' {{ item }}
+#  args:
+#    chdir: '{{ roles_common_document_root }}'
+#  with_items:
+#    - /usr/local/lib/heroku/bin/heroku
+#    - /bin/bash
+#    - /usr/local/lib/heroku/bin/node
+#    - /usr/local/lib/heroku/bin/run
+#    - /usr/local/lib/heroku/node_modules/@heroku-cli/plugin-local-v5/lib/run_foreman.js
+#    - /usr/local/lib/heroku/node_modules/@heroku/foreman/nf.js
+#    - vendor/heroku/heroku-buildpack-php/bin/heroku-php-apache2
+#    - /usr/bin/tail
+#    - /bin/sed
+#    - /usr/sbin/php-fpm
+#    - /usr/sbin/httpd
+#    - /usr/local/lib/heroku/node_modules/@heroku-cli/plugin-ps-exec/node_modules/cardinal/bin/cdl.js
+#    - /usr/local/lib/heroku/node_modules/@heroku-cli/plugin-ps-exec/node_modules/esprima/bin/esparse.js
+#    - /usr/local/lib/heroku/node_modules/@heroku-cli/plugin-ps-exec/node_modules/esprima/bin/esvalidate.js
+#    - /usr/local/lib/heroku/node_modules/cardinal/bin/cdl.js
+#    - /usr/local/lib/heroku/node_modules/esprima/bin/esparse.js
+#    - /usr/local/lib/heroku/node_modules/esprima/bin/esvalidate.js
+#    - /usr/local/lib/heroku/node_modules/heroku-exec-util/node_modules/cardinal/bin/cdl.js
+#    - /usr/local/lib/heroku/node_modules/heroku-exec-util/node_modules/esprima/bin/esparse.js
+#    - /usr/local/lib/heroku/node_modules/heroku-exec-util/node_modules/esprima/bin/esvalidate.js
+#    - /usr/local/lib/heroku/node_modules/heroku-exec-util/node_modules/uuid/bin/uuid
+#    - /usr/local/lib/heroku/node_modules/js-yaml/bin/js-yaml.js
+#    - /usr/local/lib/heroku/node_modules/mkdirp/bin/cmd.js
+#    - /usr/local/lib/heroku/node_modules/mustache/bin/mustache
+#    - /usr/local/lib/heroku/node_modules/nopt/bin/nopt.js
+#    - /usr/local/lib/heroku/node_modules/semver/bin/semver
+#    - /usr/local/lib/heroku/node_modules/sparkline/bin/sparkline
+#    - /usr/local/lib/heroku/node_modules/uuid/bin/uuid
+#    - /usr/local/lib/heroku/node_modules/which/bin/which
+#    - /usr/local/lib/heroku/node_modules/yarn/bin/yarn
+#    - /usr/local/lib/heroku/node_modules/yarn/bin/yarn.cmd
+#    - /usr/local/lib/heroku/node_modules/yarn/bin/yarn.js
+#    - /usr/local/lib/heroku/node_modules/yarn/bin/yarnpkg
+#    - /usr/local/lib/heroku/node_modules/yarn/bin/yarnpkg.cmd
 
 - name: ANSISTRANO | HOOKS | Check whether Samba config for workspace exists or not
   stat:
@@ -76,8 +158,8 @@
 - name: ANSISTRANO | HOOKS | Replace workspace on Samba config
   replace:
     path: /etc/samba/smb.conf.workspace
-    regexp: '^\s+path\s*=\s*{{ current_document_root.stdout }}'
-    replace: "    path = {{ ansistrano_deploy_to }}"
+    regexp: ^\s+path\s*=\s*{{ current_document_root.stdout }}
+    replace: '    path = {{ ansistrano_deploy_to }}'
   become: yes
   notify: restart samba
   when: stat_samba_config_workspace.stat.exists
